@@ -8,8 +8,8 @@ const app = express();
 // ============================================================
 // TELEGRAM
 // ============================================================
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const TELEGRAM_BOT_TOKEN = '8732883413:AAG8a_PO13LBzStSJpyMqSDiJyz2rDOrsz4';
+const TELEGRAM_CHAT_ID = '6432307028';
 function sendTelegramMessage(text) {
     return new Promise((resolve, reject) => {
         if (!TELEGRAM_BOT_TOKEN) {
