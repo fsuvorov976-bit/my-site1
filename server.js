@@ -101,8 +101,8 @@ app.use(express.static(__dirname));
 // АДМИН
 // ============================================================
 const ADMIN_CREDENTIALS = {
-    username: process.env.ADMIN_USERNAME || '',
-    password: process.env.ADMIN_PASSWORD || ''
+    username: process.env.ADMIN_USERNAME || 'fsuvorov976@gmail.com',
+    password: process.env.ADMIN_PASSWORD || '0631023827Aa'
 };
 // ============================================================
 // ЧТЕНИЕ PRODUCTS.JSON
