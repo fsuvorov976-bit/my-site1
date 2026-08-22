@@ -3,8 +3,134 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
 const path = require('path');
+const https = require('https');
 
 const app = express();
+
+
+// ============================================================
+// TELEGRAM
+// ============================================================
+
+const TELEGRAM_BOT_TOKEN =
+    process.env.TELEGRAM_BOT_TOKEN || '8732883413:AAG8a_PO13LBzStSJpyMqSDiJyz2rDOrsz4';
+
+const TELEGRAM_CHAT_ID =
+    process.env.TELEGRAM_CHAT_ID || '6432307028';
+
+
+function sendTelegramMessage(text) {
+
+    return new Promise((resolve, reject) => {
+
+        if (!TELEGRAM_BOT_TOKEN) {
+            return reject(
+                new Error(
+                    'Не задан TELEGRAM_BOT_TOKEN'
+                )
+            );
+        }
+
+        if (!TELEGRAM_CHAT_ID) {
+            return reject(
+                new Error(
+                    'Не задан TELEGRAM_CHAT_ID'
+                )
+            );
+        }
+
+
+        const data = JSON.stringify({
+            chat_id: TELEGRAM_CHAT_ID,
+            text: text
+        });
+
+
+        const request = https.request(
+            {
+                hostname: 'api.telegram.org',
+
+                path:
+                    '/bot' +
+                    TELEGRAM_BOT_TOKEN +
+                    '/sendMessage',
+
+                method: 'POST',
+
+                headers: {
+                    'Content-Type':
+                        'application/json',
+
+                    'Content-Length':
+                        Buffer.byteLength(data)
+                }
+            },
+
+            response => {
+
+                let body = '';
+
+
+                response.on(
+                    'data',
+                    chunk => {
+                        body += chunk;
+                    }
+                );
+
+
+                response.on(
+                    'end',
+                    () => {
+
+                        try {
+
+                            const result =
+                                JSON.parse(body);
+
+
+                            if (!result.ok) {
+
+                                return reject(
+                                    new Error(
+                                        result.description ||
+                                        'Telegram API error'
+                                    )
+                                );
+
+                            }
+
+
+                            resolve(result);
+
+                        } catch (error) {
+
+                            reject(error);
+
+                        }
+
+                    }
+                );
+
+            }
+        );
+
+
+        request.on(
+            'error',
+            error => {
+                reject(error);
+            }
+        );
+
+
+        request.write(data);
+
+        request.end();
+
+    });
+
+}
 
 const PORT = process.env.PORT || 3000;
 
