@@ -198,7 +198,7 @@
         <div class="logo-sub">Авторизований сервіс запчастин</div>
     </div>
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Пошук запчастин за назвою..." oninput="filterProducts()">
+        <input type="text" id="searchInput" placeholder="Пошук за назвою або кодом товару..." oninput="filterProducts()">
         <button onclick="filterProducts()">🔍</button>
     </div>
     <button class="cart-btn" id="cartBtn" onclick="openCart()">🛒 Кошик (0)</button>
@@ -266,7 +266,27 @@
                     <button onclick="setBatchStock(false)" style="background: #c62828; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">✕ Зробити вибрані Відсутніми</button>
                     <button onclick="selectAllVisible()" style="background: #003366; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 12px;">Вибрати всі</button>
                     <button onclick="clearSelection()" style="background: #777; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 12px;">Зняти виділення</button>
+                    <button onclick="deleteSelectedProducts()" style="background: #b71c1c; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">🗑 Видалити вибрані</button>
+                    <span style="font-size: 13px; font-weight: bold; color: #003366;">Вибрано: <span id="selectedCount">0</span></span>
                     <button onclick="openAddBrandModal()" style="background: #0089ff; color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">➕ Додати виробника</button>
+
+                    <!-- Кнопка удаления производителя (интегрирована в панель администратора) -->
+                    <button
+                            type="button"
+                            onclick="deleteSelectedManufacturer()"
+                            style="
+                            background:#dc2626;
+                            color:white;
+                            border:none;
+                            border-radius:8px;
+                            padding:8px 14px;
+                            cursor:pointer;
+                            font-weight:600;
+                            font-size: 12px;
+                        "
+                    >
+                        🗑 Удалить производителя
+                    </button>
                 </div>
 
                 <div style="border-top: 1px solid #b0bec5; padding-top: 10px;">
@@ -281,6 +301,18 @@
             <div class="top-brands-showcase">
                 <div class="top-brands-title">Популярні виробники сантехніки</div>
                 <div class="brands-tiles-grid" id="topBrandsGrid"></div>
+                <div id="selectedBrandDisplay" style="margin-top: 15px; padding: 12px 15px; background: #f5f8fc; border: 1px solid #d8e0e8; border-radius: 5px; font-size: 16px; font-weight: 600; color: #003b70; display: none;">
+                    Обраний виробник: <span id="selectedBrandName"></span>
+                    <button id="clearBrandFilterBtn" type="button" onclick="clearBrandFilter()" style="
+        margin-left:10px;
+        padding:6px 10px;
+        border:1px solid #ccc;
+        border-radius:5px;
+        background:#fff;
+        cursor:pointer;
+        font-size:13px;
+    ">Очистити фільтр</button>
+                </div>
             </div>
 
             <div class="product-grid" id="productGrid"></div>
@@ -367,6 +399,7 @@
             <div>
                 <div id="modalProductStock" style="margin-bottom: 10px;"></div>
                 <h2 id="modalProductTitle" style="font-size: 18px; color: #111; margin-bottom: 15px; line-height: 1.4;"></h2>
+                <div id="modalProductCode" style="font-size:13px; color:#555; margin-bottom:10px; font-weight:600;"></div>
                 <div id="modalProductCategory" style="font-size: 13px; color: #666; margin-bottom: 15px;"></div>
 
                 <div id="modalAdminBox" style="display: none; background: #f0f4f8; border: 1px solid #b0bec5; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 12px;">
@@ -380,6 +413,11 @@
                     <div style="font-weight:bold; color:#444; margin-bottom:4px;">Доступні способи доставки:</div>
                     <div style="display: flex; gap: 10px;">
                         <label><input type="checkbox" id="modalDelivNp" onchange="updateModalConfig('np', this.checked)"> Нова Пошта</label>
+                        <div style="margin-left:16px; margin-top:4px; display:flex; flex-direction:column; gap:3px;">
+                            <label><input type="checkbox" id="modalDelivBranch" onchange="updateModalConfig('branch', this.checked)"> Нова Пошта — відділення (+80 грн)</label>
+                            <label><input type="checkbox" id="modalDelivPostomat" onchange="updateModalConfig('postomat', this.checked)"> Нова Пошта — поштомат (+90 грн)</label>
+                            <label><input type="checkbox" id="modalDelivCourier" onchange="updateModalConfig('courier', this.checked)"> Нова Пошта — кур'єр (+140 грн)</label>
+                        </div>
                         <label><input type="checkbox" id="modalDelivPickup" onchange="updateModalConfig('pickup', this.checked)"> Самовивіз</label>
                     </div>
                 </div>
@@ -467,6 +505,24 @@
                                 <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
                                     <input type="radio" name="np_sub" value="courier" onchange="switchNpSubtype()" style="accent-color: #0089ff;"> Кур'єром
                                 </label>
+                            </div>
+
+                            <!-- ТАРИФИ НОВОЇ ПОШТИ -->
+                            <div onclick="event.stopPropagation()" style="margin-top: 15px; background: #f5f8fc; border: 1px solid #d8e0e8; border-radius: 8px; overflow: hidden; color: #333;">
+                                <div style="padding: 10px 12px; font-weight: 700; color: #003366;">Вартість доставки</div>
+                                <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: center; background: #fff;">
+                                    <thead>
+                                    <tr>
+                                        <th style="padding: 9px 6px; border-bottom: 1px solid #d8e0e8;">Спосіб доставки</th>
+                                        <th style="padding: 9px 6px; border-bottom: 1px solid #d8e0e8;">Вартість</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr><td style="padding: 9px 6px; border-bottom: 1px solid #eee;">У відділення</td><td style="padding: 9px 6px; border-bottom: 1px solid #eee; font-weight: 700;">+ 80 грн</td></tr>
+                                    <tr><td style="padding: 9px 6px; border-bottom: 1px solid #eee;">У поштомат</td><td style="padding: 9px 6px; border-bottom: 1px solid #eee; font-weight: 700;">+ 90 грн</td></tr>
+                                    <tr><td style="padding: 9px 6px;">Кур'єром</td><td style="padding: 9px 6px; font-weight: 700;">+ 140 грн</td></tr>
+                                    </tbody>
+                                </table>
                             </div>
 
                             <div class="form-group" style="margin-top: 15px; margin-bottom: 5px;" onclick="event.stopPropagation()">
@@ -604,7 +660,7 @@
     }
 
     function loadProductsFromServer() {
-        fetch('/api/products')
+        fetch('/api/products', { cache: 'no-store' })
             .then(response => response.json())
             .then(products => {
                 let savedConfig = JSON.parse(localStorage.getItem('products_admin_config') || '{}');
@@ -617,7 +673,9 @@
                     let config = savedConfig[item.title] || {};
                     let finalStock = config.inStock !== undefined ? config.inStock : defaultInStock;
                     let finalPayments = config.payments || { online: true, cash: true, account: true };
-                    let finalDeliveries = config.deliveries || { np: true, pickup: true };
+                    let finalDeliveries = config.deliveries || { np: true, branch: true, postomat: true, courier: true, pickup: true };
+                    if (finalDeliveries.np === false) { finalDeliveries.branch = false; finalDeliveries.postomat = false; finalDeliveries.courier = false; }
+                    else { if (finalDeliveries.branch === undefined) finalDeliveries.branch = true; if (finalDeliveries.postomat === undefined) finalDeliveries.postomat = true; if (finalDeliveries.courier === undefined) finalDeliveries.courier = true; }
 
                     return {
                         ...item,
@@ -725,14 +783,53 @@
 
     function selectBrandFromTile(brandName) {
         document.querySelectorAll('.brand-filter').forEach(cb => {
-            if (cb.value === brandName) { cb.checked = !cb.checked; }
+            cb.checked = (cb.value === brandName);
         });
+
+        const display = document.getElementById('selectedBrandDisplay');
+        const name = document.getElementById('selectedBrandName');
+        const clearBtn = document.getElementById('clearBrandFilterBtn');
+
+        if (display && name) {
+            name.textContent = brandName;
+            display.style.display = 'block';
+        }
+
+        if (clearBtn) {
+            clearBtn.style.display = 'inline-block';
+        }
+
+        filterProducts();
+    }
+
+    function clearBrandFilter() {
+        document.querySelectorAll('.brand-filter').forEach(cb => {
+            cb.checked = false;
+        });
+
+        const display = document.getElementById('selectedBrandDisplay');
+        const name = document.getElementById('selectedBrandName');
+        const clearBtn = document.getElementById('clearBrandFilterBtn');
+
+        if (display) {
+            display.style.display = 'none';
+        }
+
+        if (name) {
+            name.textContent = '';
+        }
+
+        if (clearBtn) {
+            clearBtn.style.display = 'none';
+        }
+
         filterProducts();
     }
 
     function renderProducts(products) {
         const productGrid = document.getElementById('productGrid');
         productGrid.innerHTML = '';
+        updateSelectedCount();
 
         if (products.length === 0) {
             productGrid.innerHTML = '<p style="grid-column: 1/-1; text-align:center; padding: 30px; color:#666;">Товарів не знайдено.</p>';
@@ -756,7 +853,8 @@
             let adminOptionsHtml = '';
 
             if (isAdminLoggedIn) {
-                batchCheckboxHtml = `<input type="checkbox" class="batch-checkbox" data-title="${attrTitle}" style="display: block;">`;
+                const productCode = String(item.productCode || item.Код_товара || '').trim();
+                batchCheckboxHtml = `<input type="checkbox" class="batch-checkbox" data-title="${attrTitle}" data-code="${productCode}" onchange="updateSelectedCount()" style="display: block;">`;
 
                 adminOptionsHtml = `
                     <div class="admin-options-box">
@@ -768,6 +866,11 @@
 
                         <div style="font-weight:bold; color:#444; margin-top:6px;">Доставка:</div>
                         <label><input type="checkbox" ${item.deliveries.np ? 'checked' : ''} onchange="updateProductConfig('${attrTitle}', 'np', this.checked)"> Нова Пошта</label>
+                        <div style="margin-left:16px; margin-top:4px; display:flex; flex-direction:column; gap:3px;">
+                            <label><input type="checkbox" ${item.deliveries.branch !== false ? 'checked' : ''} onchange="updateProductConfig('${attrTitle}', 'branch', this.checked)"> Нова Пошта — відділення (+80 грн)</label>
+                            <label><input type="checkbox" ${item.deliveries.postomat !== false ? 'checked' : ''} onchange="updateProductConfig('${attrTitle}', 'postomat', this.checked)"> Нова Пошта — поштомат (+90 грн)</label>
+                            <label><input type="checkbox" ${item.deliveries.courier !== false ? 'checked' : ''} onchange="updateProductConfig('${attrTitle}', 'courier', this.checked)"> Нова Пошта — кур'єр (+140 грн)</label>
+                        </div>
                         <label><input type="checkbox" ${item.deliveries.pickup ? 'checked' : ''} onchange="updateProductConfig('${attrTitle}', 'pickup', this.checked)"> Самовивіз</label>
                     </div>
                 `;
@@ -781,6 +884,7 @@
                     ${stockBadgeHtml}
                     ${imgHtml}
                     <div class="product-title" title="${item.title}" onclick="openProductModal('${safeTitle}')">${item.title}</div>
+                    <div style="font-size:12px; color:#666; margin-top:5px;">Код товару: <strong>${item.productCode || item.Код_товара || '—'}</strong></div>
                     ${adminOptionsHtml}
                 </div>
                 <div>
@@ -798,8 +902,13 @@
 
         if (field === 'online' || field === 'cash' || field === 'account') {
             item.payments[field] = value;
-        } else if (field === 'np' || field === 'pickup') {
+        } else if (field === 'np' || field === 'pickup' || field === 'branch' || field === 'postomat' || field === 'courier') {
             item.deliveries[field] = value;
+            if (field === 'np' && !value) {
+                item.deliveries.branch = false;
+                item.deliveries.postomat = false;
+                item.deliveries.courier = false;
+            }
         }
         saveAdminConfigToStorage();
     }
@@ -811,14 +920,30 @@
 
     function saveAdminConfigToStorage() {
         let configState = {};
+        const updates = [];
+
         allProducts.forEach(p => {
             configState[p.title] = {
                 inStock: p.inStock,
                 payments: p.payments,
                 deliveries: p.deliveries
             };
+            updates.push({
+                code: p.productCode || p.Код_товара || '',
+                title: p.title,
+                inStock: p.inStock,
+                payments: p.payments,
+                deliveries: p.deliveries
+            });
         });
+
         localStorage.setItem('products_admin_config', JSON.stringify(configState));
+
+        fetch('/api/products/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ updates })
+        }).catch(err => console.log('Не вдалося зберегти налаштування на сервері:', err));
     }
 
     function openProductModal(title) {
@@ -837,6 +962,12 @@
         document.getElementById('modalProductTitle').innerText = item.title;
         document.getElementById('modalProductPrice').innerText = item.price + ' ₴';
 
+        const modalCode = item.productCode || item.Код_товара || '';
+        const modalCodeElement = document.getElementById('modalProductCode');
+        if (modalCodeElement) {
+            modalCodeElement.innerText = modalCode ? 'Код товару: ' + modalCode : 'Код товару: —';
+        }
+
         let cat = item.category || item.Тип_запчасти || 'Запчастини';
         let brand = item.brand || item.Производитель || '';
         document.getElementById('modalProductCategory').innerText = `Категорія: ${cat} ${brand ? ' | Виробник: ' + brand : ''}`;
@@ -854,8 +985,11 @@
             document.getElementById('modalPayOnline').checked = item.payments.online;
             document.getElementById('modalPayCash').checked = item.payments.cash;
             document.getElementById('modalPayAccount').checked = item.payments.account;
-            document.getElementById('modalDelivNp').checked = item.deliveries.np;
-            document.getElementById('modalDelivPickup').checked = item.deliveries.pickup;
+            document.getElementById('modalDelivNp').checked = item.deliveries.np !== false;
+            document.getElementById('modalDelivBranch').checked = item.deliveries.branch !== false;
+            document.getElementById('modalDelivPostomat').checked = item.deliveries.postomat !== false;
+            document.getElementById('modalDelivCourier').checked = item.deliveries.courier !== false;
+            document.getElementById('modalDelivPickup').checked = item.deliveries.pickup !== false;
         } else {
             modalAdminBox.style.display = 'none';
         }
@@ -885,10 +1019,52 @@
     }
 
     function openFullscreenImg(src) {
-        window.open(src, '_blank');
+        const overlay = document.getElementById('fullscreenImageOverlay');
+        const image = document.getElementById('fullscreenImage');
+
+        if (!overlay || !image) return;
+
+        image.src = src;
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
     }
 
+    function closeFullscreenImg() {
+        const overlay = document.getElementById('fullscreenImageOverlay');
+        const image = document.getElementById('fullscreenImage');
+
+        if (overlay) overlay.style.display = 'none';
+        if (image) image.src = '';
+
+        document.body.style.overflow = '';
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeFullscreenImg();
+        }
+    });
+
     function filterProducts() {
+        const checkedBrands = Array.from(document.querySelectorAll('.brand-filter:checked'));
+        const display = document.getElementById('selectedBrandDisplay');
+        const name = document.getElementById('selectedBrandName');
+        const clearBtn = document.getElementById('clearBrandFilterBtn');
+        if (checkedBrands.length === 1) {
+            if (display) display.style.display = 'block';
+            if (name) name.textContent = checkedBrands[0].value;
+            if (clearBtn) clearBtn.style.display = 'inline-block';
+        } else if (checkedBrands.length === 0) {
+            if (display) display.style.display = 'none';
+            if (name) name.textContent = '';
+            if (clearBtn) clearBtn.style.display = 'none';
+        } else {
+            if (display) display.style.display = 'block';
+            if (name) name.textContent = checkedBrands.map(cb => cb.value).join(', ');
+            if (clearBtn) clearBtn.style.display = 'inline-block';
+        }
+
+
         const searchText = document.getElementById('searchInput').value.toLowerCase().trim();
         const minPrice = parseFloat(document.getElementById('priceMin').value) || 0;
         const maxPrice = parseFloat(document.getElementById('priceMax').value) || Infinity;
@@ -898,7 +1074,10 @@
         const selectedBrands = [...document.querySelectorAll('.brand-filter:checked')].map(cb => cb.value);
 
         const filtered = allProducts.filter(item => {
-            const matchesSearch = item.title.toLowerCase().includes(searchText);
+            const itemCode = String(item.productCode || item.Код_товара || '').toLowerCase();
+            const matchesSearch =
+                item.title.toLowerCase().includes(searchText) ||
+                itemCode.includes(searchText);
             const matchesPrice = item.price >= minPrice && item.price <= maxPrice;
             const matchesStock = !onlyInStock || item.inStock;
 
@@ -914,8 +1093,133 @@
         renderProducts(filtered);
     }
 
-    function selectAllVisible() { document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = true); }
-    function clearSelection() { document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = false); }
+    function updateSelectedCount() {
+        const count = document.querySelectorAll('.batch-checkbox:checked').length;
+        const counter = document.getElementById('selectedCount');
+        if (counter) counter.textContent = count;
+    }
+
+    function selectAllVisible() {
+        document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = true);
+        updateSelectedCount();
+    }
+
+    function clearSelection() {
+        document.querySelectorAll('.batch-checkbox').forEach(cb => cb.checked = false);
+        updateSelectedCount();
+    }
+
+    async function deleteSelectedProducts() {
+        const checkedBoxes = Array.from(document.querySelectorAll('.batch-checkbox:checked'));
+        if (checkedBoxes.length === 0) {
+            alert('Позначте товари, які потрібно видалити!');
+            return;
+        }
+
+        const codes = checkedBoxes
+            .map(cb => String(cb.getAttribute('data-code') || '').trim())
+            .filter(Boolean);
+
+        if (!codes.length) {
+            alert('Не вдалося визначити коди вибраних товарів.');
+            return;
+        }
+
+        if (!confirm(`Точно видалити ${codes.length} товарів?\n\nВони будуть видалені з сервера та зникнуть для всіх користувачів.`)) return;
+
+        try {
+            const response = await fetch('/api/products/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codes })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Не вдалося видалити товари');
+            }
+
+            const codeSet = new Set(codes);
+            allProducts = allProducts.filter(product => {
+                const code = String(product.productCode || product.Код_товара || '').trim();
+                return !codeSet.has(code);
+            });
+
+            updateSelectedCount();
+            buildFiltersAndTiles(allProducts);
+            filterProducts();
+            alert(`Видалено товарів: ${data.deleted || codes.length}.\nЗміни збережені на сервері.`);
+        } catch (error) {
+            console.error('Помилка видалення:', error);
+            alert('Помилка видалення: ' + error.message);
+        }
+    }
+
+    // Интегрированная функция удаления выбранного производителя
+    async function deleteSelectedManufacturer() {
+        const manufacturer =
+            document.getElementById('manufacturerFilter')?.value ||
+            document.getElementById('manufacturer')?.value ||
+            // Интеграция с текущим интерфейсом фильтров чекбоксов/поиска: берем отмеченного производителя в фильтре
+            Array.from(document.querySelectorAll('.brand-filter:checked')).map(cb => cb.value)[0] ||
+            '';
+
+        if (!manufacturer) {
+            alert('Сначала выберите производителя');
+            return;
+        }
+
+        const confirmed = confirm(
+            `Удалить производителя "${manufacturer}" вместе со всеми его товарами?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                '/api/manufacturers/delete',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        manufacturer: manufacturer
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok || !result.success) {
+                throw new Error(
+                    result.error ||
+                    'Не удалось удалить производителя'
+                );
+            }
+
+            alert(
+                `Производитель "${manufacturer}" удалён.\n` +
+                `Удалено товаров: ${result.deleted}`
+            );
+
+            location.reload();
+
+        } catch (error) {
+            console.error(
+                'Ошибка удаления производителя:',
+                error
+            );
+
+            alert(
+                error.message ||
+                'Ошибка удаления производителя'
+            );
+        }
+    }
 
     function setBatchStock(status) {
         const checkedBoxes = document.querySelectorAll('.batch-checkbox:checked');
@@ -938,8 +1242,16 @@
         fetch('/api/upload', { method: 'POST', body: formData })
             .then(res => res.json())
             .then(data => {
-                if (data.success) { alert('Товари оновлено!'); loadProductsFromServer(); }
-                else alert('Помилка завантаження');
+                if (data.success) {
+                    alert(`Товари оновлено! Збережено: ${data.count || 0}`);
+                    loadProductsFromServer();
+                } else {
+                    alert('Помилка завантаження: ' + (data.error || 'Невідома помилка'));
+                }
+            })
+            .catch(error => {
+                console.error(error);
+                alert('Помилка зєднання з сервером: ' + error.message);
             });
     }
 
@@ -1062,6 +1374,9 @@
 
         let allowNp = true;
         let allowPickup = true;
+        let allowBranch = true;
+        let allowPostomat = true;
+        let allowCourier = true;
         let allowOnline = true;
         let allowCash = true;
         let allowAccount = true;
@@ -1071,6 +1386,9 @@
             if (productObj) {
                 if (productObj.deliveries && productObj.deliveries.np === false) allowNp = false;
                 if (productObj.deliveries && productObj.deliveries.pickup === false) allowPickup = false;
+                if (productObj.deliveries && productObj.deliveries.branch === false) allowBranch = false;
+                if (productObj.deliveries && productObj.deliveries.postomat === false) allowPostomat = false;
+                if (productObj.deliveries && productObj.deliveries.courier === false) allowCourier = false;
                 if (productObj.payments && productObj.payments.online === false) allowOnline = false;
                 if (productObj.payments && productObj.payments.cash === false) allowCash = false;
                 if (productObj.payments && productObj.payments.account === false) allowAccount = false;
@@ -1079,14 +1397,36 @@
 
         const npCard = document.getElementById('npCard');
         const pickupCard = document.getElementById('pickupCard');
+        const npBranch = document.querySelector('input[name="np_sub"][value="branch"]');
+        const npPostomat = document.querySelector('input[name="np_sub"][value="postomat"]');
+        const npCourier = document.querySelector('input[name="np_sub"][value="courier"]');
 
-        npCard.style.display = allowNp ? 'flex' : 'none';
+        const anyNpSubtype = allowBranch || allowPostomat || allowCourier;
+        npCard.style.display = (allowNp && anyNpSubtype) ? 'flex' : 'none';
         pickupCard.style.display = allowPickup ? 'flex' : 'none';
 
-        if (allowNp && !allowPickup) {
+        if (npBranch) npBranch.parentElement.style.display = allowBranch ? 'flex' : 'none';
+        if (npPostomat) npPostomat.parentElement.style.display = allowPostomat ? 'flex' : 'none';
+        if (npCourier) npCourier.parentElement.style.display = allowCourier ? 'flex' : 'none';
+
+        if (allowNp && anyNpSubtype && !allowPickup) {
             selectDeliveryType('np');
-        } else if (!allowNp && allowPickup) {
+        } else if ((!allowNp || !anyNpSubtype) && allowPickup) {
             selectDeliveryType('pickup');
+        } else if (allowNp && anyNpSubtype && allowPickup) {
+            selectDeliveryType('np');
+        }
+
+        if (allowNp && anyNpSubtype) {
+            const firstNp = [
+                {input: npBranch, value: 'branch', allowed: allowBranch},
+                {input: npPostomat, value: 'postomat', allowed: allowPostomat},
+                {input: npCourier, value: 'courier', allowed: allowCourier}
+            ].find(x => x.allowed && x.input);
+            if (firstNp) {
+                firstNp.input.checked = true;
+                switchNpSubtype();
+            }
         }
 
         const payOnline = document.getElementById('payCardOnline');
@@ -1111,7 +1451,7 @@
             listHtml += `<div class="sidebar-item"><span>${item.title} (<b>${item.quantity} шт.</b>)</span><strong style="color: #b12704; white-space: nowrap;">${itemTotal} ₴</strong></div>`;
         });
         document.getElementById('sidebarProductList').innerHTML = listHtml;
-        document.getElementById('sidebarTotalPrice').innerText = total + ' ₴';
+        updateCheckoutTotal(total);
         document.getElementById('checkoutOverlay').style.display = 'block';
     }
 
@@ -1127,6 +1467,41 @@
         } else {
             document.getElementById('pickupCard').classList.add('active-option-card');
             document.getElementById('pickupRadio').checked = true;
+        }
+        updateCheckoutTotal();
+    }
+
+    function getDeliveryFee() {
+        const isNp = document.getElementById('npRadio') && document.getElementById('npRadio').checked;
+        if (!isNp) return 0;
+        const subtype = document.querySelector('input[name="np_sub"]:checked');
+        if (!subtype) return 0;
+        if (subtype.value === 'branch') return 80;
+        if (subtype.value === 'postomat') return 90;
+        if (subtype.value === 'courier') return 140;
+        return 0;
+    }
+
+    function updateCheckoutTotal(baseTotal) {
+        if (baseTotal === undefined) {
+            baseTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        }
+        const deliveryFee = getDeliveryFee();
+        const total = baseTotal + deliveryFee;
+        const totalElem = document.getElementById('sidebarTotalPrice');
+        if (totalElem) totalElem.innerText = `${total} ₴`;
+
+        const sidebar = document.querySelector('.checkout-sidebar');
+        if (sidebar) {
+            let feeRow = document.getElementById('checkoutDeliveryFee');
+            if (!feeRow) {
+                feeRow = document.createElement('div');
+                feeRow.id = 'checkoutDeliveryFee';
+                feeRow.style.cssText = 'display:flex;justify-content:space-between;padding:8px 0;font-size:13px;color:#555;border-top:1px solid #eee;';
+                const totalRow = sidebar.querySelector('.sidebar-total-row');
+                if (totalRow) totalRow.parentNode.insertBefore(feeRow, totalRow);
+            }
+            feeRow.innerHTML = `<span>Доставка:</span><strong>${deliveryFee ? '+' + deliveryFee + ' ₴' : 'Безкоштовно'}</strong>`;
         }
     }
 
@@ -1180,7 +1555,15 @@
     }
 
     function switchNpSubtype() {
-        renderFilteredWarehouses();
+        const subtype = document.querySelector('input[name="np_sub"]:checked');
+        if (!subtype || subtype.parentElement.style.display === 'none') return;
+
+        if (selectedCityRef) {
+            loadNovaPoshtaWarehouses(selectedCityRef);
+        } else {
+            renderFilteredWarehouses();
+        }
+        updateCheckoutTotal();
     }
 
     function loadNovaPoshtaWarehouses(cityRef) {
@@ -1200,8 +1583,12 @@
                         </div>
                         <div class="form-group" style="flex: 1; margin-bottom: 0;">
                             <label style="font-size: 12px; color: #444;">Будинок *</label>
-                            <input type="text" id="courierBuilding" placeholder=" №" style="padding: 10px; font-size: 13px;">
+                            <input type="text" id="courierBuilding" placeholder="№ будинку" style="padding: 10px; font-size: 13px;">
                         </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 10px; margin-bottom: 0;">
+                        <label style="font-size: 12px; color: #444;">Квартира / офіс</label>
+                        <input type="text" id="courierApartment" placeholder="Номер квартири або офісу (необов'язково)" style="padding: 10px; font-size: 13px;">
                     </div>
                 `;
             }
@@ -1303,7 +1690,12 @@
             if (subtype === 'courier') {
                 const street = document.getElementById('courierStreet') ? document.getElementById('courierStreet').value.trim() : '';
                 const building = document.getElementById('courierBuilding') ? document.getElementById('courierBuilding').value.trim() : '';
-                deliveryDetails = `Кур'єр (${cityName}, вул. ${street}, буд. ${building})`;
+                const apartment = document.getElementById('courierApartment') ? document.getElementById('courierApartment').value.trim() : '';
+                if (!street || !building) {
+                    alert("Будь ласка, вкажіть вулицю та номер будинку для кур'єрської доставки!");
+                    return;
+                }
+                deliveryDetails = `Кур'єр (${cityName}, вул. ${street}, буд. ${building}${apartment ? ', кв./офіс ' + apartment : ''})`;
             } else {
                 const selectElem = document.getElementById('npTargetSelect');
                 const warehouseName = selectElem && selectElem.options[selectElem.selectedIndex] ? selectElem.options[selectElem.selectedIndex].text : 'Відділення не вибрано';
@@ -1315,7 +1707,9 @@
         const activePaymentCard = document.querySelector('#checkoutOverlay .checkout-step:nth-last-child(1) .option-card.active-option-card');
         const paymentType = activePaymentCard ? activePaymentCard.querySelector('strong').innerText : 'Не вказано';
 
-        let total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        let subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const deliveryFee = getDeliveryFee();
+        let total = subtotal + deliveryFee;
 
         const orderData = {
             lastName,
@@ -1325,6 +1719,7 @@
             total,
             delivery: deliveryType,
             deliveryDetails,
+            deliveryFee,
             payment: paymentType
         };
 
@@ -1350,6 +1745,55 @@
             });
     }
 </script>
+
+<div id="fullscreenImageOverlay"
+     onclick="if(event.target === this) closeFullscreenImg()"
+     style="
+        display:none;
+        position:fixed;
+        inset:0;
+        width:100%;
+        height:100%;
+        background:rgba(0,0,0,0.92);
+        z-index:99999;
+        align-items:center;
+        justify-content:center;
+        padding:20px;
+        box-sizing:border-box;
+     ">
+    <button type="button"
+            onclick="closeFullscreenImg()"
+            aria-label="Закрити"
+            style="
+                position:absolute;
+                top:18px;
+                right:22px;
+                width:44px;
+                height:44px;
+                border:none;
+                border-radius:50%;
+                background:rgba(255,255,255,0.15);
+                color:#fff;
+                font-size:30px;
+                line-height:44px;
+                cursor:pointer;
+                z-index:2;
+            ">×</button>
+
+    <img id="fullscreenImage"
+         src=""
+         alt=""
+         onclick="closeFullscreenImg()"
+         style="
+            max-width:96vw;
+            max-height:94vh;
+            width:auto;
+            height:auto;
+            object-fit:contain;
+            display:block;
+            cursor:zoom-out;
+         ">
+</div>
 
 </body>
 </html>
