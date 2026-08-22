@@ -8,10 +8,8 @@ const app = express();
 // ============================================================
 // TELEGRAM
 // ============================================================
-const TELEGRAM_BOT_TOKEN =
-    process.env.TELEGRAM_BOT_TOKEN || '8732883413:AAG8a_PO13LBzStSJpyMqSDiJyz2rDOrsz4';
-const TELEGRAM_CHAT_ID =
-    process.env.TELEGRAM_CHAT_ID || '6432307028';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 function sendTelegramMessage(text) {
     return new Promise((resolve, reject) => {
         if (!TELEGRAM_BOT_TOKEN) {
@@ -103,8 +101,8 @@ app.use(express.static(__dirname));
 // АДМИН
 // ============================================================
 const ADMIN_CREDENTIALS = {
-    username: process.env.ADMIN_USERNAME || 'fsuvorov976@gmail.com',
-    password: process.env.ADMIN_PASSWORD || '0631023827Aa'
+    username: process.env.ADMIN_USERNAME || '',
+    password: process.env.ADMIN_PASSWORD || ''
 };
 // ============================================================
 // ЧТЕНИЕ PRODUCTS.JSON
@@ -716,11 +714,9 @@ app.post('/api/order', async (req, res) => {
             lastName,
             phone,
             delivery,
-            address,
-            branch,
+            deliveryDetails,
             payment,
-            cart,
-            total
+            cart
         } = req.body;
         if (!firstName || !lastName || !phone || !payment) {
             return res.status(400).json({
@@ -728,39 +724,69 @@ app.post('/api/order', async (req, res) => {
                 error: 'Не заполнены обязательные данные'
             });
         }
-        let productsText = 'Нет товаров';
-        if (Array.isArray(cart) && cart.length > 0) {
-            productsText = cart.map((item, index) => {
-                const name = item.title || item.name || 'Товар';
-                const quantity = item.quantity || 1;
-                const price = item.price || 0;
-                return `${index + 1}. ${name} — ${quantity} шт. × ${price}`;
-            }).join('\n');
+        if (!Array.isArray(cart) || cart.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Корзина пуста'
+            });
         }
+// Считаем сумму товаров на сервере.
+// deliveryFee из сайта специально НЕ включаем,
+// чтобы "Разом до сплати" соответствовало стоимости товаров.
+        const subtotal = cart.reduce((sum, item) => {
+            const quantity = Number(item.quantity) || 1;
+            const price = Number(item.price) || 0;
+            return sum + (price * quantity);
+        }, 0);
+        const formatMoney = value =>
+            Number.isInteger(value)
+                ? String(value)
+                : value.toFixed(2);
+        const productsText = cart.map((item, index) => {
+            const name = item.title || item.name || 'Товар';
+            const code =
+                item.productCode ||
+                item.Код_товара ||
+                item.code ||
+                '';
+            const quantity = Number(item.quantity) || 1;
+            const price = Number(item.price) || 0;
+            const codeText = code ? ` — ${code}` : '';
+            return (
+                `${index + 1}. ${name}${codeText} — ` +
+                `${quantity} шт. × ${formatMoney(price)} ₴`
+            );
+        }).join('\n');
+        const deliveryText = delivery || 'Не вказано';
+        const deliveryDetailsText =
+            deliveryDetails || 'Не вказано';
+        const paymentText = payment || 'Не вказано';
         const message = `
-􀀀 НОВЫЙ ЗАКАЗ
-􀀀 Клиент:
-Имя: ${firstName}
-Фамилия: ${lastName}
+􀀀 Нове замовлення!
+􀀀 Клієнт: ${lastName} ${firstName}
 􀀀 Телефон: ${phone}
-􀀀 Доставка:
-${delivery || 'Не указана'}
-􀀀 Адрес:
-${address || 'Не указан'}
-􀀀 Отделение:
-${branch || 'Не указано'}
-􀀀 Способ оплаты:
-${payment}
-􀀀 Товары:
+􀀀 Доставка: ${deliveryText}
+􀀀 Відділення/Адреса: ${deliveryDetailsText}
+􀀀 Оплата: ${paymentText}
+􀀀 Товари:
 ${productsText}
-􀀀 Итого:
-${total || 'Не указано'}
-􀀀 Время:
-${new Date().toLocaleString('ru-RU', {
+􀀀 Разом до сплати: ${formatMoney(subtotal)} ₴
+􀀀 Час: ${new Date().toLocaleString('uk-UA', {
             timeZone: 'Europe/Warsaw'
         })}
 `.trim();
         await sendTelegramMessage(message);
+        console.log('');
+        console.log('==========================================');
+        console.log('НОВЫЙ ЗАКАЗ ОТПРАВЛЕН В TELEGRAM');
+        console.log(`Клиент: ${lastName} ${firstName}`);
+        console.log(`Телефон: ${phone}`);
+        console.log(`Доставка: ${deliveryText}`);
+        console.log(`Адрес/отделение: ${deliveryDetailsText}`);
+        console.log(`Оплата: ${paymentText}`);
+        console.log(`Сумма товаров: ${formatMoney(subtotal)} ₴`);
+        console.log('==========================================');
+        console.log('');
         res.json({
             success: true,
             message: 'Заказ успешно оформлен'
@@ -773,6 +799,9 @@ ${new Date().toLocaleString('ru-RU', {
         });
     }
 });
+// ============================================================
+// ЗАПУСК СЕРВЕРА
+// ============================================================
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Сервер запущен на порту ${PORT}`);
 });
